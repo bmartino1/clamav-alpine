@@ -10,11 +10,11 @@ FROM alpine:latest
 RUN apk update && \
     apk add --no-cache pv ca-certificates clamav clamav-libunrar tzdata curl && \
     apk add --upgrade apk-tools libcurl openssl busybox && \
-    rm -rf /var/cache/apk/* && \
+    rm -rf /var/cache/apk/*
 
-# Script to check and download configuration files if not present
-RUN ["/bin/sh", "-c", "if [ ! -f /etc/clamd.conf ]; then curl -o /etc/clamd.conf https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/clamd.conf; fi"]
-RUN ["/bin/sh", "-c", "if [ ! -f /etc/freshclam.conf ]; then curl -o /etc/freshclam.conf https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/freshclam.conf; fi"]
+# Remove existing clamd.conf and freshclam.conf, then download the new ones
+RUN rm -f /etc/clamd.conf && curl -o /etc/clamd.conf https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/clamd.conf
+RUN rm -f /etc/freshclam.conf && curl -o /etc/freshclam.conf https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/freshclam.conf
 
 # Copy and add the script to the container
 ADD https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/Build_Freshclam_ClamD.sh /usr/local/bin/Build_Freshclam_ClamD.sh
