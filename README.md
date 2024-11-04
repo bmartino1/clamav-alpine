@@ -1,5 +1,8 @@
 # WIP reuse previouis or rebuild to use clamdscan
 
+Rebuilding Image for Unraid clamdscan... Users should have a file to edit in db folder clamdscan.sh?
+https://github.com/bmartino1/ClamAV
+
 # ClamAV scanning Docker container based on Alpine
  
 <!-- TOC -->
@@ -10,12 +13,6 @@
       - [Volumes](#volumes)
     - [Examples](#examples)
   - [Expected Output](#expected-output)
-  - [Supported Tags | Versions](#supported-tags--versions)
-  - [Vuln Scanning](#vuln-scanning)
-    - [Edge](#edge)
-    - [Latest](#latest)
-  - [History](#history)
-      - [2024-03-08](#2024-03-08)
 <!-- /TOC --> 
 
 This container allows you a very simple way to scan a mounted directory using `clamdscan`.
