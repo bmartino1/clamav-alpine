@@ -1,4 +1,5 @@
-#Check and confirm that /etc/clamd.conf and fresclam exist. 
+#!/bin/ash
+
 # Function to check if a file exists, and download it if it doesn't
 check_and_download() {
   FILE_PATH=$1
@@ -19,3 +20,8 @@ check_and_download "/etc/clamd.conf" "https://raw.githubusercontent.com/bmartino
 
 # Check and download freshclam.conf if not present
 check_and_download "/etc/freshclam.conf" "https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/freshclam.conf"
+
+# Check and download clamdscan.sh if not present
+check_and_download "/var/lib/clamav/clamdscan.sh" "https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/clamdscan.sh"
+
+exit 0
