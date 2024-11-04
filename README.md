@@ -1,11 +1,6 @@
+# WIP reuse previouis or rebuild to use clamdscan
+
 # ClamAV scanning Docker container based on Alpine
-<img src="https://github.com/tquizzle/clamav-alpine/blob/master/img/clamav.png" width=300 alt="ClamAV"> 
-
-![Docker Pulls](https://img.shields.io/docker/pulls/tquinnelly/clamav-alpine.svg?style=for-the-badge) ![Docker Image Size](https://img.shields.io/docker/image-size/tquinnelly/clamav-alpine/latest?style=for-the-badge) ![Docker Stars](https://img.shields.io/docker/stars/tquinnelly/clamav-alpine?style=for-the-badge)
- ![GitHub Build Status (with event)](https://img.shields.io/github/actions/workflow/status/tquizzle/clamav-alpine/.github%2Fworkflows%2Fdocker-tqci.yml?style=for-the-badge) ![Last Commit](https://img.shields.io/github/last-commit/tquizzle/clamav-alpine?style=for-the-badge)
-
-[<img src="https://raw.githubusercontent.com/tquizzle/clamav-alpine/master/img/kofi_long_button_red-402x500.png" width=225 />](https://ko-fi.com/tquinnelly)
- 
  
 <!-- TOC -->
 - [ClamAV scanning Docker container based on Alpine](#clamav-scanning-docker-container-based-on-alpine)
@@ -21,30 +16,9 @@
     - [Latest](#latest)
   - [History](#history)
       - [2024-03-08](#2024-03-08)
-      - [2024-01-14](#2024-01-14)
-      - [2023-12-09](#2023-12-09)
-      - [2023-09-30](#2023-09-30)
-      - [2023-07](#2023-07)
-      - [2023-12-09](#2023-12-09)
-      - [2023-05-27](#2023-05-27)
-      - [2023-05-26](#2023-05-26)
-      - [2023-04-23](#2023-04-23)
-      - [2023-04-22](#2023-04-22)
-      - [2023-02-11](#2023-02-11)
-      - [2022-09-02](#2022-09-02)
-      - [2022-07-10](#2022-07-10)
-      - [2021-12-24](#2021-12-24)
-      - [2021-11-25](#2021-11-25)
-      - [2021-10-08](#2021-10-08)
-      - [2021-06-24](#2021-06-24)
-      - [2021-04-17](#2021-04-17)
-      - [2021-01-31](#2021-01-31)
-      - [2020-10-06](#2020-10-06)
-      - [2020-05-23](#2020-05-23)
-      - [2020-02-16](#2020-02-16)
 <!-- /TOC --> 
 
-This container allows you a very simple way to scan a mounted directory using `clamscan`.
+This container allows you a very simple way to scan a mounted directory using `clamdscan`.
 
 It will always update the ClamAV Database, by using the standard `freshclam` before running `clamscan`.
 If the local ClamAV Database is up-to-date, it will check and continue.
@@ -59,7 +33,7 @@ Pay attention to `-v /path/to/scan` as this is the mounted directory that this d
 ```
 docker run -it \
   -v /path/to/scan:/scan:ro \
-  tquinnelly/clamav-alpine -i
+  tquinnelly/clamav-alpine
 ```
 Use `-d` instead of `-it` if you want to detach and move along.
 
@@ -153,111 +127,3 @@ End Date:   2022:07:10 13:12:08
 2022-07-10T13:12:08+00:00 ClamAV scanning finished
 ```
 
-## Supported Tags | Versions
-
-| Tag | ClamAV Version | Alpine Version |
-| --- | --- | --- |
-| latest | 1.2.2-r0 | 3.20.3 |
-| edge | 1.3.2-r0 | Edge |
-
-<!-- ## Vuln Scanning
-### Edge
-Testing tquinnelly/clamav-alpine:edge...
-
-* Package manager:   apk
-* Project name:      docker-image|tquinnelly/clamav-alpine
-* Docker image:      tquinnelly/clamav-alpine:edge
-* Platform:          linux/amd64
-
-✔ Tested 39 dependencies for known vulnerabilities, no vulnerable paths found.
-
-### Latest
-Testing tquinnelly/clamav-alpine...
-
-* Package manager:   apk
-* Project name:      docker-image|tquinnelly/clamav-alpine
-* Docker image:      tquinnelly/clamav-alpine
-* Platform:          linux/amd64
-* Base image:        alpine:3.16.0
-
-✔ Tested 39 dependencies for known vulnerabilities, no vulnerable paths found.
-
-According to our scan, you are currently using the most secure version of the selected base image -->
-
-## History
-
-#### [2024-09-15](#2024-09-15)
-* Updated Alpine to 3.20.3 `latest`
-* Updated ClamAV to 1.3.2-r0 on `edge`
-
-#### [2024-03-08](#2024-03-08)
-* Updated ClamAV to 1.2.2-r0 on `latest` and `edge`
-
-#### [2024-01-14](#2024-01-14)
-* Updated openssl to 3.1.4-r3 on `latest` and `edge` to mitigate [CVE-2023-6129](https://security.snyk.io/vuln/SNYK-ALPINE319-OPENSSL-6148881)
-
-#### [2023-12-09](#2023-12-09)
-* Updated ClamAV to 1.2.1-r0 on `latest` and `edge`
-
-#### [2023-05-27](#2023-05-27) 
-* Updated `scan.sh` to fix the new line issue
-* Updated `edge` and `latest` Dockerfiles to remove hardcoded ClamAV version
-
-#### [2023-05-26](#2023-05-26) 
-* Updated `latest` to Alpine 3.18
-* Updated ClamAV to 1.10-r0 on `latest` and `edge`
-
-#### [2023-04-23](#2023-04-23)
-* Updated ClamAV to 1.0.1-r0 on `edge`
-
-#### [2023-04-22](#2023-04-22)
-* Updated ClamAV to 0.105.2-r0 on `latest`
-
-#### [2023-02-11](#2023-02-11)
-* Updated `latest` to Alpine 3.17
-* Updated ClamAV to 0.105.1-r0
-
-#### [2022-09-02](#2022-09-02)
-* Updated ClamAV to 0.104.4-r1 on `edge`
-
-#### [2022-07-10](#2022-07-10)
-* Updating `latest` to Alpine 3.16
-* Updating ClamAV to 0.104.3-r0 on `latest` and `edge`
-
-#### [2021-12-24](#2021-12-24)
-* Updating packages for vuln scan
-* Reorganizing commands
-
-#### [2021-11-25](#2021-11-25)
-* Bump edge version for clamav to 0.104.1-r0
-
-#### [2021-10-08](#2021-10-08)
-* Bump edge version for clamav to 0.103.3-r1
-
-#### [2021-06-24](#2021-06-24)
-* Bump version for clamav 0.103.3-r0
-
-#### [2021-04-17](#2021-04-17)
-* Bump version for clamav 0.103.2-r0
-* Pull Requests
-  * Added Upgrade openssl
-    * PR - https://github.com/tquizzle/clamav-alpine/pull/5
-  * Added ca-certificates package
-    * PR - https://github.com/tquizzle/clamav-alpine/pull/6
-
-#### [2021-01-31](#2021-01-31)
-* Bump version for clamav 0.103.0-r1
-
-#### [2020-10-06](#2020-10-06)
-* Bump version for clamav 0.102.4-r1
-
-#### [2020-05-23](#2020-05-23)
-* Bump version for clamav 0.102.3-r0
-* Added unrar and unrar libs
-
-
-#### [2020-02-16](#2020-02-16)
-* Bump version for clamav 0.102.1-r0
-
-
-<img src="https://tianji.0hq.cc/telemetry/clnzoxcy10001vy2ohi4obbi0/cm09ricjj0069kl2u25b2mi8m.gif" alt="ClamAV">
