@@ -9,9 +9,8 @@ https://github.com/bmartino1/ClamAV
 - [ClamAV scanning Docker container based on Alpine](#clamav-scanning-docker-container-based-on-alpine)
   - [How-To](#how-to)
     - [Usage](#usage)
-      - [Post-Args](#post-args)
       - [Volumes](#volumes)
-    - [Examples](#examples)
+    - [Examples](#Examples docker run)
   - [Expected Output](#expected-output)
 <!-- /TOC --> 
 
@@ -34,44 +33,23 @@ docker run -it \
 ```
 Use `-d` instead of `-it` if you want to detach and move along.
 
-#### Post-Args
-I took the liberty to include `-i` by default. You can, however, add any you desire.
-
-* `-i` - Only print infected files
-* `--log=FILE` - save scan report to FILE
-* `--database=FILE/DIR` - load virus database from FILE or load all supported db files from DIR
-* `--official-db-only[=yes/no(*)]` - only load official signatures
-* `--max-filesize=#n` - files larger than this will be skipped and assumed clean
-* `--max-scansize=#n` - the maximum amount of data to scan for each container file
-* `--leave-temps[=yes/no(*)]`- do not remove temporary files
-* `--file-list=FILE` - scan files from FILE
-* `--quiet` - only output error messages
-* `--bell` - sound bell on virus detection
-* `--cross-fs[=yes(*)/no]` - scan files and directories on other filesystems
-* `--move=DIRECTORY` - move infected files into DIRECTORY
-* `--copy=DIRECTORY` - copy infected files into DIRECTORY
-* `--bytecode-timeout=N` - set bytecode timeout (in milliseconds)
-* `--heuristic-alerts[=yes(*)/no]` - toggles heuristic alerts
-* `--alert-encrypted[=yes/no(*)]` - alert on encrypted archives and documents
-* `--nocerts` - disable authenticode certificate chain verification in PE files
-* `--disable-cache` - disable caching and cache checks for hash sums of scanned files
 
 #### Volumes
+
+There are 3 Main volumes in the image that should have tehre own volume mounts...
+- /mnt/user/appdata/ClamAV/log:/var/log/clamav  # Log storage
+- /mnt/user/appdata/ClamAV/db:/var/lib/clamav  # ClamAV database
+- /mnt/user/appdata/ClamAV/etc:/etc/clamav  # ClamAV configuration
+- /mnt/user:/scan  # The directory to scan (Defulat /mnt/user)
+
 I only have the `/scan` directory noted above. You can add others in conjunction with the post-args as well.
-
 **Save AV Signatures**
-
 * `-v /path/to/sig:/var/lib/clamav`
 
-**Infected Dir**
 
-* `-v /path/to/infected:/infected`
-* Then  you can use either the `--move` or `--copy` post-arg above.
+### Examples docker run
 
-### Examples
-Here are some examples of various configurations.
-
-This is the one **I** run. I target 2 cores of my CPU as to not cripple my host. I also log to the DB directory and limit 2G file size scan.
+WIP ? may need to build my own docker image...
 
 ```
 docker run -d --name=ClamAV \
@@ -80,47 +58,90 @@ docker run -d --name=ClamAV \
   -v /path/to/sig:/var/lib/clamav:rw \
   tquinnelly/clamav-alpine -i --log=/var/lib/clamav/log.log --max-filesize=2048M
 ```
+Docker compose exisit in this repo:
+https://github.com/bmartino1/ClamAV
 
 ## Expected Output
 
+**Start of ClamD**
+
 ```
-# docker run -it -v /path:/scan:ro tquinnelly/clamav-alpine -i
+Tue Oct 29 04:22:16 2024 -> +++ Started at Tue Oct 29 04:22:16 2024
+Tue Oct 29 04:22:16 2024 -> Received 0 file descriptor(s) from systemd.
+Tue Oct 29 04:22:16 2024 -> clamd daemon 0.104.3 (OS: Linux, ARCH: x86_64, CPU: x86_64)
+Tue Oct 29 04:22:16 2024 -> Log file size limited to 4294967295 bytes.
+Tue Oct 29 04:22:16 2024 -> Reading databases from /var/lib/clamav
+Tue Oct 29 04:22:16 2024 -> Not loading PUA signatures.
+Tue Oct 29 04:22:16 2024 -> Bytecode: Security mode set to "TrustSigned".
+Tue Oct 29 04:22:33 2024 -> Loaded 8698887 signatures.
+Tue Oct 29 04:22:37 2024 -> LOCAL: Removing stale socket file /var/run/clamav/clamd.sock
+Tue Oct 29 04:22:37 2024 -> LOCAL: Unix socket file /var/run/clamav/clamd.sock
+Tue Oct 29 04:22:37 2024 -> LOCAL: Setting connection queue length to 200
+Tue Oct 29 04:22:37 2024 -> Limits: Global time limit set to 120000 milliseconds.
+Tue Oct 29 04:22:37 2024 -> Limits: Global size limit set to 104857600 bytes.
+Tue Oct 29 04:22:37 2024 -> Limits: File size limit set to 26214400 bytes.
+Tue Oct 29 04:22:37 2024 -> Limits: Recursion level limit set to 17.
+Tue Oct 29 04:22:37 2024 -> Limits: Files limit set to 10000.
+Tue Oct 29 04:22:37 2024 -> Limits: Core-dump limit is 0.
+Tue Oct 29 04:22:37 2024 -> Limits: MaxEmbeddedPE limit set to 10485760 bytes.
+Tue Oct 29 04:22:37 2024 -> Limits: MaxHTMLNormalize limit set to 10485760 bytes.
+Tue Oct 29 04:22:37 2024 -> Limits: MaxHTMLNoTags limit set to 2097152 bytes.
+Tue Oct 29 04:22:37 2024 -> Limits: MaxScriptNormalize limit set to 5242880 bytes.
+Tue Oct 29 04:22:37 2024 -> Limits: MaxZipTypeRcg limit set to 1048576 bytes.
+Tue Oct 29 04:22:37 2024 -> Limits: MaxPartitions limit set to 50.
+Tue Oct 29 04:22:37 2024 -> Limits: MaxIconsPE limit set to 100.
+Tue Oct 29 04:22:37 2024 -> Limits: MaxRecHWP3 limit set to 16.
+Tue Oct 29 04:22:37 2024 -> Limits: PCREMatchLimit limit set to 100000.
+Tue Oct 29 04:22:37 2024 -> Limits: PCRERecMatchLimit limit set to 2000.
+Tue Oct 29 04:22:37 2024 -> Limits: PCREMaxFileSize limit set to 26214400.
+Tue Oct 29 04:22:37 2024 -> Archive support enabled.
+Tue Oct 29 04:22:37 2024 -> AlertExceedsMax heuristic detection disabled.
+Tue Oct 29 04:22:37 2024 -> Heuristic alerts enabled.
+Tue Oct 29 04:22:37 2024 -> Portable Executable support enabled.
+Tue Oct 29 04:22:37 2024 -> ELF support enabled.
+Tue Oct 29 04:22:37 2024 -> Mail files support enabled.
+Tue Oct 29 04:22:37 2024 -> OLE2 support enabled.
+Tue Oct 29 04:22:37 2024 -> PDF support enabled.
+Tue Oct 29 04:22:37 2024 -> SWF support enabled.
+Tue Oct 29 04:22:37 2024 -> HTML support enabled.
+Tue Oct 29 04:22:37 2024 -> XMLDOCS support enabled.
+Tue Oct 29 04:22:37 2024 -> HWP3 support enabled.
+Tue Oct 29 04:22:37 2024 -> Self checking every 600 seconds.
+Tue Oct 29 04:22:37 2024 -> Listening daemon: PID: 14
+Tue Oct 29 04:22:37 2024 -> MaxQueue set to: 100
+Tue Oct 29 04:22:37 2024 -> Set stacksize to 1048576
+```
 
-2022-07-10T13:05:10+00:00 ClamAV process starting
+**End of a scan in docker log**
 
-Updating ClamAV scan DB
-ClamAV update process started at Sun Jul 10 13:05:10 2022
-daily database available for download (remote version: 26597)
-Testing database: '/var/lib/clamav/tmp.c94c177031/clamav-5960cb40f091d042fdbe87b6656dc482.tmp-daily.cvd' ...
-Database test passed.
-daily.cvd updated (version: 26597, sigs: 1989376, f-level: 90, builder: raynman)
-main database available for download (remote version: 62)
-Testing database: '/var/lib/clamav/tmp.c94c177031/clamav-f97772d5bbd6c13c61c4ea14c3ebeb86.tmp-main.cvd' ...
-Database test passed.
-main.cvd updated (version: 62, sigs: 6647427, f-level: 90, builder: sigmgr)
-bytecode database available for download (remote version: 333)
-Testing database: '/var/lib/clamav/tmp.c94c177031/clamav-5ce3fe7b3dd82e9d6f61c4d68dde2ab0.tmp-bytecode.cvd' ...
-Database test passed.
-bytecode.cvd updated (version: 333, sigs: 92, f-level: 63, builder: awillia2)
-
-Freshclam updated the DB
-
-ClamAV 0.104.3/26597/Sun Jul 10 07:56:43 2022
-
-Scanning /scan
+```
+Tue Oct 29 10:17:56 2024 -> /scan/Dockers/PhotoPrism/storage/sidecar/brandon/Google Pixel 7 Pro/Messages/7594cab4-9333-4e31-874c-887741083bc0.yml: OK
 
 ----------- SCAN SUMMARY -----------
-Known viruses: 8621438
-Engine version: 0.104.3
-Scanned directories: 3171
-Scanned files: 16683
 Infected files: 0
-Data scanned: 3131.81 MB
-Data read: 3120.78 MB (ratio 1.00:1)
-Time: 375.514 sec (6 m 15 s)
-Start Date: 2022:07:10 13:05:53
-End Date:   2022:07:10 13:12:08
-
-2022-07-10T13:12:08+00:00 ClamAV scanning finished
+Time: 391.872 sec (6 m 31 s)
+Start Date: 2024:10:29 10:11:25
+End Date:   2024:10:29 10:17:57
+Displaying any 'Found' infected files:
 ```
 
+**You can then check your log files in the log folder
+example log.log when you have mutiple folder setup to scan...**
+
+```
+--------------------------------------
+
+----------- SCAN SUMMARY -----------
+Infected files: 0
+Time: 0.006 sec (0 m 0 s)
+Start Date: 2024:10:29 04:23:16
+End Date:   2024:10:29 04:23:16
+--------------------------------------
+
+----------- SCAN SUMMARY -----------
+Infected files: 0
+Time: 3827.306 sec (63 m 47 s)
+Start Date: 2024:10:29 04:23:16
+End Date:   2024:10:29 05:27:04
+--------------------------------------
+```
