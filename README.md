@@ -14,7 +14,7 @@ docker pull bmmbmm01/clamav-alpine
 
 This container provides a simple way to scan a mounted directory using `clamdscan`.
 
-It will always update the ClamAV database by using the standard `freshclam` before running `clamscan`.
+It will always update the ClamAV database by using the standard `freshclam` before running script to start clamd and use `clamdscan`.
 If the local ClamAV database is up-to-date, it will check and continue.
 
 ## How-To
@@ -48,8 +48,8 @@ Use `-d` instead of `-it` if you want to detach and move along.
 
 There are 3 main volumes in the image that should have their own volume mounts:
 - /mnt/user/appdata/ClamAV/log:/var/log/clamav  # Log storage but will function without it mounted
-- /mnt/user/appdata/ClamAV/db:/var/lib/clamav  # ClamAV database but will function without it mounted; recommended for access to what is scanned
-- /mnt/user/appdata/ClamAV/etc:/etc/clamav  # ClamAV configuration but will function without it mounted; recommended to edit exclude files at the bottom of clamd
+- /mnt/user/appdata/ClamAV/db:/var/lib/clamav  # ClamAV database but will function without it mounted; recommended for access to script to what is scanned
+- /mnt/user/appdata/ClamAV/etc:/etc/clamav  # ClamAV configuration but will function without it mounted; recommended to edit exclude files at the bottom of clamd.conf
 - /mnt/user:/scan  # The directory to scan (default /mnt/user) MUST HAVE!
 
 ### Examples Unraid Docker Run
@@ -68,9 +68,9 @@ docker run -d \
   -l net.unraid.docker.managed=dockerman \
   -l net.unraid.docker.icon='https://github.com/tquizzle/clamav-alpine/blob/master/img/clamav.png?raw=1' \
   -v '/mnt/user/':'/scan':'ro' \
-  -v '/mnt/user/appdata/test/db/':'/var/lib/clamav':'rw' \
-  -v '/mnt/user/appdata/test/log/':'/var/log/clamav':'rw' \
-  -v '/mnt/user/appdata/test/etc/':'/etc/clamav':'rw' \
+  -v '/mnt/user/appdata/ClamAV/db/':'/var/lib/clamav':'rw' \
+  -v '/mnt/user/appdata/ClamAV/log/':'/var/log/clamav':'rw' \
+  -v '/mnt/user/appdata/ClamAV/etc/':'/etc/clamav':'rw' \
   --health-start-period=120s \
   --health-interval=60s \
   --health-retries=3 \
@@ -161,3 +161,4 @@ Start Date: 2024:10:29 04:23:16
 End Date:   2024:10:29 05:27:04
 --------------------------------------
 ```
+you can edit the script to uncoment and add this to the end of log if you edit the script to add more then one folder.
