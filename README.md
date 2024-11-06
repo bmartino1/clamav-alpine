@@ -1,28 +1,28 @@
-# ClamAV scanning Docker container based on Alpine
+# ClamAV Scanning Docker Container Based on Alpine
 
 https://hub.docker.com/r/bmmbmm01/clamav-alpine
 docker pull bmmbmm01/clamav-alpine
- 
+
 <!-- TOC -->
-- [ClamAV scanning Docker container based on Alpine](#clamav-scanning-docker-container-based-on-alpine)
+- [ClamAV Scanning Docker Container Based on Alpine](#clamav-scanning-docker-container-based-on-alpine)
   - [How-To](#how-to)
     - [Usage](#usage)
       - [Volumes](#volumes)
-    - [Examples](#Examples docker run)
+    - [Examples](#examples-docker-run)
   - [Expected Output](#expected-output)
 <!-- /TOC --> 
 
-This container allows you a very simple way to scan a mounted directory using `clamdscan`.
+This container provides a simple way to scan a mounted directory using `clamdscan`.
 
-It will always update the ClamAV Database, by using the standard `freshclam` before running `clamscan`.
-If the local ClamAV Database is up-to-date, it will check and continue.
+It will always update the ClamAV database by using the standard `freshclam` before running `clamscan`.
+If the local ClamAV database is up-to-date, it will check and continue.
 
 ## How-To
 
 ### Usage
 Using this image is fairly straightforward.
 
-Pay attention to `-v /path/to/scan` as this is the mounted directory that this docker image will scan.
+Pay attention to `-v /path/to/scan` as this is the mounted directory that this Docker image will scan.
 
 ```
 docker run -d \
@@ -40,20 +40,19 @@ docker run -d \
   --health-interval=60s \
   --health-retries=3 \
   bmmbmm01/clamav-alpine
-
 ```
-Use `-d` instead of `-it` if you want to detach and move along.
 
+Use `-d` instead of `-it` if you want to detach and move along.
 
 #### Volumes
 
-There are 3 Main volumes in the image that should have there own volume mounts...
-- /mnt/user/appdata/ClamAV/log:/var/log/clamav  # Log storage but will function with out it mounted
-- /mnt/user/appdata/ClamAV/db:/var/lib/clamav  # ClamAV database but will function with out it mounted recomend for access to what is scaned
-- /mnt/user/appdata/ClamAV/etc:/etc/clamav  # ClamAV configuration but will function with out it mounted recomend to edite exclude files to bottom of clamd
-- /mnt/user:/scan  # The directory to scan (Defulat /mnt/user) MUST HAVE!
+There are 3 main volumes in the image that should have their own volume mounts:
+- /mnt/user/appdata/ClamAV/log:/var/log/clamav  # Log storage but will function without it mounted
+- /mnt/user/appdata/ClamAV/db:/var/lib/clamav  # ClamAV database but will function without it mounted; recommended for access to what is scanned
+- /mnt/user/appdata/ClamAV/etc:/etc/clamav  # ClamAV configuration but will function without it mounted; recommended to edit exclude files at the bottom of clamd
+- /mnt/user:/scan  # The directory to scan (default /mnt/user) MUST HAVE!
 
-### Examples docker run
+### Examples Unraid Docker Run
 
 ```
 docker run -d \
@@ -77,7 +76,7 @@ docker run -d \
   --health-retries=3 \
   bmmbmm01/clamav-alpine
 ```
-Docker compose versioon exisit in this repo:
+Docker Compose version exists in this repo:
 https://github.com/bmartino1/ClamAV
 
 ## Expected Output
@@ -130,7 +129,7 @@ Tue Oct 29 04:22:37 2024 -> MaxQueue set to: 100
 Tue Oct 29 04:22:37 2024 -> Set stacksize to 1048576
 ```
 
-**End of a scan in docker log**
+**End of a Scan in Docker Log**
 
 ```
 Tue Oct 29 10:17:56 2024 -> /scan/Dockers/PhotoPrism/storage/sidecar/brandon/Google Pixel 7 Pro/Messages/7594cab4-9333-4e31-874c-887741083bc0.yml: OK
@@ -143,8 +142,7 @@ End Date:   2024:10:29 10:17:57
 Displaying any 'Found' infected files:
 ```
 
-**You can then check your log files in the log folder
-example log.log when you have mutiple folder setup to scan...**
+**You can then check your log files in the log folder, for example `log.log` when you have multiple folders set up to scan...**
 
 ```
 --------------------------------------
