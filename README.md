@@ -27,44 +27,64 @@ Using this image is fairly straightforward.
 Pay attention to `-v /path/to/scan` as this is the mounted directory that this docker image will scan.
 
 ```
-docker run -it \
-  -v /path/to/scan:/scan:ro \
-  tquinnelly/clamav-alpine
+docker run -d \
+  --name='testClamAV' \
+  --net='host' \
+  --privileged=true \
+  -e TZ="America/Chicago" \
+  -e 'USER_ID'='0' \
+  -e 'GROUP_ID'='0' \
+  -v '/path/to/scan':'/scan':'ro' \
+  -v '/path/to/db/':'/var/lib/clamav':'rw' \
+  -v '/path/to/log/':'/var/log/clamav':'rw' \
+  -v '/path/to/etc/':'/etc/clamav':'rw' \
+  --health-start-period=120s \
+  --health-interval=60s \
+  --health-retries=3 \
+  bmmbmm01/clamav-alpine
+
 ```
 Use `-d` instead of `-it` if you want to detach and move along.
 
 
 #### Volumes
 
-There are 3 Main volumes in the image that should have tehre own volume mounts...
-- /mnt/user/appdata/ClamAV/log:/var/log/clamav  # Log storage
-- /mnt/user/appdata/ClamAV/db:/var/lib/clamav  # ClamAV database
-- /mnt/user/appdata/ClamAV/etc:/etc/clamav  # ClamAV configuration
-- /mnt/user:/scan  # The directory to scan (Defulat /mnt/user)
-
-I only have the `/scan` directory noted above. You can add others in conjunction with the post-args as well.
-**Save AV Signatures**
-* `-v /path/to/sig:/var/lib/clamav`
-
+There are 3 Main volumes in the image that should have there own volume mounts...
+- /mnt/user/appdata/ClamAV/log:/var/log/clamav  # Log storage but will function with out it mounted
+- /mnt/user/appdata/ClamAV/db:/var/lib/clamav  # ClamAV database but will function with out it mounted recomend for access to what is scaned
+- /mnt/user/appdata/ClamAV/etc:/etc/clamav  # ClamAV configuration but will function with out it mounted recomend to edite exclude files to bottom of clamd
+- /mnt/user:/scan  # The directory to scan (Defulat /mnt/user) MUST HAVE!
 
 ### Examples docker run
 
-WIP ? may need to build my own docker image...
-
 ```
-docker run -d --name=ClamAV \
-  --cpuset-cpus='0,1' \
-  -v /path/to/scan:/scan:ro \
-  -v /path/to/sig:/var/lib/clamav:rw \
-  tquinnelly/clamav-alpine -i --log=/var/lib/clamav/log.log --max-filesize=2048M
+docker run -d \
+  --name='ClamAV clamdscan' \
+  --net='host' \
+  --pids-limit 2048 \
+  --privileged=true \
+  -e TZ="America/Chicago" \
+  -e HOST_OS="Unraid" \
+  -e HOST_CONTAINERNAME="ClamAV" \
+  -e 'USER_ID'='0' \
+  -e 'GROUP_ID'='0' \
+  -l net.unraid.docker.managed=dockerman \
+  -l net.unraid.docker.icon='https://github.com/tquizzle/clamav-alpine/blob/master/img/clamav.png?raw=1' \
+  -v '/mnt/user/':'/scan':'ro' \
+  -v '/mnt/user/appdata/test/db/':'/var/lib/clamav':'rw' \
+  -v '/mnt/user/appdata/test/log/':'/var/log/clamav':'rw' \
+  -v '/mnt/user/appdata/test/etc/':'/etc/clamav':'rw' \
+  --health-start-period=120s \
+  --health-interval=60s \
+  --health-retries=3 \
+  bmmbmm01/clamav-alpine
 ```
-Docker compose exisit in this repo:
+Docker compose versioon exisit in this repo:
 https://github.com/bmartino1/ClamAV
 
 ## Expected Output
 
 **Start of ClamD**
-
 ```
 Tue Oct 29 04:22:16 2024 -> +++ Started at Tue Oct 29 04:22:16 2024
 Tue Oct 29 04:22:16 2024 -> Received 0 file descriptor(s) from systemd.
