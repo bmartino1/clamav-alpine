@@ -7,14 +7,14 @@ docker pull bmmbmm01/clamav-alpine
 - [ClamAV Scanning Docker Container Based on Alpine](#clamav-scanning-docker-container-based-on-alpine)
   - [How-To](#how-to)
     - [Usage](#usage)
-      - [Volumes](#volumes)
-    - [Examples](#examples-docker-run)
+    - [Volumes](#volumes)
+    - [Examples Unraid Docker Run](#examples-unraid-docker-run)
   - [Expected Output](#expected-output)
-<!-- /TOC --> 
+<!-- /TOC -->
 
 This container provides a simple way to scan a mounted directory using `clamdscan`.
 
-It will always update the ClamAV database by using the standard `freshclam` before running script to start clamd and use `clamdscan`.
+It will always update the ClamAV database by using the standard `freshclam` before running a script to start clamd and use `clamdscan`.
 If the local ClamAV database is up-to-date, it will check and continue.
 
 ## How-To
@@ -44,11 +44,11 @@ docker run -d \
 
 Use `-d` instead of `-it` if you want to detach and move along.
 
-#### Volumes
+### Volumes
 
 There are 3 main volumes in the image that should have their own volume mounts:
 - /mnt/user/appdata/ClamAV/log:/var/log/clamav  # Log storage but will function without it mounted
-- /mnt/user/appdata/ClamAV/db:/var/lib/clamav  # ClamAV database but will function without it mounted; recommended for access to script to what is scanned
+- /mnt/user/appdata/ClamAV/db:/var/lib/clamav  # ClamAV database but will function without it mounted; recommended for access to the script to see what is scanned
 - /mnt/user/appdata/ClamAV/etc:/etc/clamav  # ClamAV configuration but will function without it mounted; recommended to edit exclude files at the bottom of clamd.conf
 - /mnt/user:/scan  # The directory to scan (default /mnt/user) MUST HAVE!
 
@@ -161,4 +161,5 @@ Start Date: 2024:10:29 04:23:16
 End Date:   2024:10:29 05:27:04
 --------------------------------------
 ```
-you can edit the script to uncoment and add this to the end of log if you edit the script to add more then one folder.
+
+You can edit the script to uncomment and add this to the end of the log if you edit the script to add more than one folder.
