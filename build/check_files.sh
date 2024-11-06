@@ -1,6 +1,12 @@
 #!/bin/ash
 
-# Function to check if a file exists, and download it if it doesn't
+# Set permissions for directories
+echo "Setting permissions for required directories..."
+chmod -R 777 /var/lib/clamav
+chmod -R 777 /var/log/clamav
+chmod -R 777 /etc/clamav
+
+# Function to check if a file exists, download it if it doesn't, and set permissions
 check_and_download() {
   FILE_PATH=$1
   DOWNLOAD_URL=$2
@@ -10,6 +16,8 @@ check_and_download() {
       echo "Failed to download $FILE_PATH from $DOWNLOAD_URL"
       exit 1
     }
+    chmod 777 "$FILE_PATH"
+    echo "Permissions set for $FILE_PATH"
   else
     echo "File $FILE_PATH already exists. Skipping download."
   fi
