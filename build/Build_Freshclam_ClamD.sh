@@ -3,7 +3,13 @@
 
 # Update ClamAV definitions
 echo "Updating ClamAV..."
-freshclam || { echo "Failed to update ClamAV"; exit 1; }
+freshclam || {
+  echo "Initial update failed. Retrying with verbose output..."
+  freshclam -v || {
+    echo "Failed to update ClamAV"
+    exit 1
+  }
+}
 
 # Updates can Break Clamd daemon...
 > /var/log/clamav/clamd.log # Clear the clamd log before beginning
