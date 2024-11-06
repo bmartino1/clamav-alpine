@@ -24,10 +24,10 @@ check_and_download() {
 }
 
 # Check and download clamd.conf if not present
-check_and_download "/etc/clamd.conf" "https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/clamd.conf"
+check_and_download "/etc/clamav/clamd.conf" "https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/clamd.conf"
 
 # Check and download freshclam.conf if not present
-check_and_download "/etc/freshclam.conf" "https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/freshclam.conf"
+check_and_download "/etc/clamav/freshclam.conf" "https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/freshclam.conf"
 
 # Check and download clamdscan.sh if not present
 check_and_download "/var/lib/clamav/clamdscan.sh" "https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/clamdscan.sh"
