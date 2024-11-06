@@ -1,9 +1,7 @@
-# WIP reuse previouis or rebuild to use clamdscan
-
-Rebuilding Image for Unraid clamdscan... Users should have a file to edit in db folder clamdscan.sh?
-https://github.com/bmartino1/ClamAV
-
 # ClamAV scanning Docker container based on Alpine
+
+https://hub.docker.com/r/bmmbmm01/clamav-alpine
+docker pull bmmbmm01/clamav-alpine
  
 <!-- TOC -->
 - [ClamAV scanning Docker container based on Alpine](#clamav-scanning-docker-container-based-on-alpine)
