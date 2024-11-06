@@ -25,7 +25,7 @@ ADD https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/
 RUN chmod +x /var/lib/clamav/clamdscan.sh
 
 # Add check_files.sh script to the container
-ADD https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/check_config_files.sh /usr/local/bin/check_files.sh
+ADD https://raw.githubusercontent.com/bmartino1/clamav-alpine/refs/heads/master/build/check_files.sh /usr/local/bin/check_files.sh
 RUN chmod +x /usr/local/bin/check_files.sh
 
 # Run the script at container startup to update ClamAV and set up clamd
