@@ -32,6 +32,10 @@ done
 # Stop the log monitor
 kill $TAIL_PID
 
+# Display Mutiple Scan Summary at end of the scan If more than one folder is scaned
+#echo "Displaying Scan Summary" #uncoment if you have more then one folder set to scan
+#cat /var/log/clamav/log.log    #uncoment if you have more then one folder set to scan
+
 # Display infected files at the end of the scan
 echo "Displaying any 'Found' infected files:"
 cat /var/log/clamav/scan_summary.txt
