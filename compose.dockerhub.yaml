@@ -1,0 +1,24 @@
+name: clamav
+
+services:
+  clamav:
+    image: bmmbmm01/clamav-alpine:${IMAGE_TAG:-latest}
+    container_name: clamav
+    restart: "no"
+
+    environment:
+      TZ: ${TZ:-America/Chicago}
+      SCAN_FOLDERS: ${SCAN_FOLDERS:-/scan}
+
+    volumes:
+      - ${SCAN_PATH:-./scan}:/scan:ro
+      - ${CLAMAV_DB_PATH:-./db}:/var/lib/clamav:rw
+      - ${CLAMAV_LOG_PATH:-./log}:/var/log/clamav:rw
+
+    pids_limit: 2048
+
+    logging:
+      driver: local
+      options:
+        max-size: "50m"
+        max-file: "3"
