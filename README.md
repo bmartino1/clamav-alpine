@@ -9,7 +9,19 @@ Docker Hub image:
 https://hub.docker.com/r/bmmbmm01/clamav-alpine
 
 ```text
-bmmbmm01/clamav-alpine
+docker run -d \
+  --name='ClamAV-clamdscan' \
+  --net='bridge' \
+  --restart=no \
+  --pids-limit 2048 \
+  -e TZ='America/Chicago' \
+  --log-driver=local \
+  --log-opt max-size=50m \
+  --log-opt max-file=3 \
+  -v '/mnt/remotes/addons/':'/scan':'ro' \
+  -v '/mnt/user/appdata/CAVclamdscan/db/':'/var/lib/clamav':'rw' \
+  -v '/mnt/user/appdata/CAVclamdscan/log/':'/var/log/clamav':'rw' \
+  'bmmbmm01/clamav-alpine:latest'
 ```
 
 ## What this container does
