@@ -11,9 +11,20 @@ services:
       SCAN_FOLDERS: ${SCAN_FOLDERS:-/scan}
 
     volumes:
+      # Data to scan.
       - ${SCAN_PATH:-./scan}:/scan:ro
+
+      # Persistent ClamAV signature database.
       - ${CLAMAV_DB_PATH:-./db}:/var/lib/clamav:rw
+
+      # Persistent ClamAV logs and previous-run history.
       - ${CLAMAV_LOG_PATH:-./log}:/var/log/clamav:rw
+
+      # Persistent end-user-editable ClamAV configuration.
+      # On first run, missing clamd.conf/freshclam.conf are copied from the
+      # maintainer defaults stored inside the image under /build.
+      # Existing files are preserved unchanged on every later run.
+      - ${CLAMAV_ETC_PATH:-./etc}:/etc/clamav:rw
 
     pids_limit: 2048
 

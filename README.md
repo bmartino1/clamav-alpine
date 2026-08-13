@@ -21,6 +21,7 @@ docker run -d \
   -v '/mnt/remotes/addons/':'/scan':'ro' \
   -v '/mnt/user/appdata/CAVclamdscan/db/':'/var/lib/clamav':'rw' \
   -v '/mnt/user/appdata/CAVclamdscan/log/':'/var/log/clamav':'rw' \
+  -v '/mnt/user/appdata/CAVclamdscan/etc/':'/etc/clamav':'rw' \
   'bmmbmm01/clamav-alpine:latest'
 ```
 
@@ -28,24 +29,58 @@ docker run -d \
 
 Each container start performs one complete scan workflow:
 
-1. Creates/checks required ClamAV runtime directories and configuration.
-2. Archives logs from the previous run, including interrupted runs.
-3. Clears the active log files for the new run.
-4. Updates the persistent signature database with `freshclam`.
-5. Starts `clamd`.
-6. Waits for `clamd` to answer `PONG` before scanning.
-7. Runs `clamdscan` against `/scan` using a local Unix socket, `--fdpass`, and `--multiscan`.
-8. Streams file-by-file scan activity from `clamd.log` into Docker stdout.
-9. Saves the full logs and infection summary under `/var/log/clamav`.
-10. Exits when the scan finishes.
+1. Creates/checks the required runtime directories.
+2. Checks `/etc/clamav/clamd.conf` and `/etc/clamav/freshclam.conf`.
+   - If a config is missing, the image copies the maintainer default from `/build` into `/etc/clamav`.
+   - If a config already exists, it is left completely unchanged so end-user edits survive image updates and restarts.
+3. Archives logs from the previous run, including interrupted runs.
+4. Clears the active log files for the new run.
+5. Updates the persistent signature database with `freshclam`.
+6. Starts `clamd`.
+7. Waits for `clamd` to answer before scanning.
+8. Runs `clamdscan` against the configured scan folders using the local Unix socket, `--fdpass`, and `--multiscan`.
+9. Streams file-by-file scan activity from `clamd.log` into Docker stdout.
+10. Saves the full logs and infection summary under `/var/log/clamav`.
+11. Exits when the scan finishes.
 
 This is intentionally **not** a permanently running ClamAV daemon container. A completed one-shot scan leaves the container stopped.
 Host networking and privileged mode are not required for this one-shot local-socket scanner.
 
+## Why `/build` exists inside the image
+
+The repository `build/` directory is copied into the image at `/build`.
+
+That is intentional. A bind mount such as:
+
+```text
+/path/to/etc:/etc/clamav:rw
+```
+
+hides whatever files were baked into `/etc/clamav` inside the image. An empty host `etc` directory would therefore otherwise make `clamd.conf` and `freshclam.conf` disappear at runtime.
+
+`check_files.sh` solves that first-run problem by using the image-local copies:
+
+```text
+/build/clamd.conf
+/build/freshclam.conf
+```
+
+and copying a file into `/etc/clamav` **only when that file is missing**.
+
+After the first run, the host gets editable copies:
+
+```text
+/path/to/etc/clamd.conf
+/path/to/etc/freshclam.conf
+```
+
+Those files now belong to the deployment. Future container starts and image updates do **not** overwrite them.
+
 ## Volumes
 
 ### `/scan`
-The data to scan. This should normally be mounted **read-only**:
+
+The data to scan. This should normally be mounted read-only:
 
 ```text
 /path/to/data:/scan:ro
@@ -59,7 +94,7 @@ Persistent ClamAV signature database:
 /path/to/db:/var/lib/clamav:rw
 ```
 
-Persisting the database avoids downloading the entire signature set on every run. `freshclam` still checks for updates before each scan.
+The official ClamAV `_base` images do not include the signature database, so persisting `/var/lib/clamav` avoids downloading the entire signature set on every run. `freshclam` still checks for updates before each scan.
 
 ### `/var/log/clamav`
 
@@ -85,9 +120,54 @@ Previous run data is archived before a new scan starts:
 
 This preserves results from a completed scan and partial logs from an interrupted/restarted scan.
 
+### `/etc/clamav`
+
+Persistent, end-user-editable ClamAV configuration:
+
+```text
+/path/to/etc:/etc/clamav:rw
+```
+
+On an empty first-run bind mount, the container creates only the missing files from its `/build` defaults. Existing files are never replaced by `check_files.sh`.
+
+This is where deployment-specific settings belong, including scan exclusions.
+
+For example, paths in `ExcludePath` are **container paths**, so a host directory mounted below `/scan` should be excluded using its `/scan/...` path:
+
+```text
+ExcludePath ^/scan/path/to/exclude(/|$)
+```
+
+The directive may be repeated for multiple exclusions.
+
+## Docker Compose
+
+The included `compose.dockerhub.yaml` persists all three ClamAV data/config areas:
+
+```yaml
+volumes:
+  - ${SCAN_PATH:-./scan}:/scan:ro
+  - ${CLAMAV_DB_PATH:-./db}:/var/lib/clamav:rw
+  - ${CLAMAV_LOG_PATH:-./log}:/var/log/clamav:rw
+  - ${CLAMAV_ETC_PATH:-./etc}:/etc/clamav:rw
+```
+
+A fresh local deployment can therefore start with directories such as:
+
+```text
+clamav/
+├── compose.dockerhub.yaml
+├── db/
+├── etc/
+├── log/
+└── scan/
+```
+
+After the first container run, `etc/` will contain the maintained defaults and can be edited on the host.
+
 ## Live scan progress
 
-The configuration intentionally uses:
+The maintained `clamd.conf` intentionally uses:
 
 ```text
 LogClean yes
@@ -104,7 +184,7 @@ That produces visible file-by-file activity in Docker/Dockge/Unraid logs during 
 /scan/path/file3.exe: OK
 ```
 
-Because this can create a large amount of stdout, the Compose examples use Docker's `local` logging driver with rotation:
+Because this can create a large amount of stdout, the Compose example uses Docker's `local` logging driver with rotation:
 
 ```yaml
 logging:
@@ -114,38 +194,23 @@ logging:
     max-file: "3"
 ```
 
-The Docker stdout rotation is separate from the persistent ClamAV logs mounted at `/var/log/clamav`.
+Docker stdout rotation is separate from the persistent ClamAV logs mounted at `/var/log/clamav`.
 
 ## Scan results and exit behavior
 
-`scan_summary.txt` is the quick infection result file. `log.log` contains the `clamdscan` summary, and `clamd.log` contains detailed daemon/file activity.
+`scan_summary.txt` is the quick infection-result file. `log.log` contains the `clamdscan` summary, and `clamd.log` contains detailed daemon/file activity.
 
 The wrapper intentionally treats a ClamAV malware detection as a completed scan and records the detection in the summary rather than marking the container itself as failed.
 
-If `clamdscan` returns a scan/error condition (for example inaccessible or unsupported filesystem objects), the wrapper returns that error code after saving the logs.
+If `clamdscan` returns a scan/error condition, the wrapper returns that error code after saving the logs.
 
-A large host tree may contain special objects that ClamAV cannot scan, for example:
+A large host tree may contain special objects that ClamAV cannot scan, for example Docker runtime files, backing block-device entries, or pseudo-filesystems. For normal deployments, point `/scan` at the user/storage data you actually want to scan.
 
-```text
-/proc/.../fdinfo/...
-Docker overlay/runtime files
-backing block-device entries
-special device or pseudo-filesystem nodes
-```
+## Updating ClamAV
 
-A summary such as:
+Virus signatures are checked and updated on every container start through `freshclam`.
 
-```text
-Infected files: 0
-Total errors: 1788
-```
-
-means no infection was reported among successfully scanned objects, but some requested objects could not be scanned. For normal deployments, point `/scan` at the actual user/storage data you care about instead of Docker's internal root filesystem or pseudo-filesystems when possible.
-
-## Updating the ClamAV engine
-
-Virus signatures update every container start through `freshclam`.
-`clamdscan` goal while replacing outdated build/runtime download behavior with a maintained official ClamAV base and self-contained project files.
+The ClamAV engine itself comes from the official image selected by `CLAMAV_TAG` in the Dockerfile. Rebuild and publish the image when you want to move to a newer supported ClamAV base image/tag.
 
 ## License
 
