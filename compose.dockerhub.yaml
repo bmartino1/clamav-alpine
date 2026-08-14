@@ -9,6 +9,7 @@ services:
     environment:
       TZ: ${TZ:-America/Chicago}
       SCAN_FOLDERS: ${SCAN_FOLDERS:-/scan}
+      EXCLUDE_PATHS: "${EXCLUDE_PATHS:-}"
 
     volumes:
       # Data to scan.

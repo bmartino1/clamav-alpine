@@ -12,7 +12,7 @@ LABEL org.opencontainers.image.description="One-shot ClamAV clamdscan filesystem
 LABEL org.opencontainers.image.source="https://github.com/bmartino1/clamav-alpine"
 LABEL org.opencontainers.image.url="https://github.com/bmartino1/clamav-alpine"
 LABEL org.opencontainers.image.vendor="bmartino1"
-
+LABEL org.opencontainers.image.licenses="MIT"
 
 # Keep a complete, image-local copy of the maintainer build payload.
 #
@@ -33,6 +33,7 @@ RUN mkdir -p \
     && cp /build/clamd.conf /etc/clamav/clamd.conf \
     && cp /build/freshclam.conf /etc/clamav/freshclam.conf \
     && cp /build/check_files.sh /usr/local/bin/check_files.sh \
+    && cp /build/apply_exclude_paths.sh /usr/local/bin/apply_exclude_paths.sh \
     && cp /build/Build_Freshclam_ClamD.sh /usr/local/bin/Build_Freshclam_ClamD.sh \
     && cp /build/clamdscan.sh /usr/local/bin/clamdscan.sh \
     && chmod 0644 \
@@ -42,9 +43,11 @@ RUN mkdir -p \
         /etc/clamav/freshclam.conf \
     && chmod 0755 \
         /build/check_files.sh \
+        /build/apply_exclude_paths.sh \
         /build/Build_Freshclam_ClamD.sh \
         /build/clamdscan.sh \
         /usr/local/bin/check_files.sh \
+        /usr/local/bin/apply_exclude_paths.sh \
         /usr/local/bin/Build_Freshclam_ClamD.sh \
         /usr/local/bin/clamdscan.sh
 
@@ -57,10 +60,13 @@ RUN mkdir -p \
 #      - seed ONLY missing /etc/clamav config files from /build
 #      - preserve existing end-user config files unchanged
 #      - archive previous logs and prepare clean active logs
-#   2. Build_Freshclam_ClamD.sh
+#   2. apply_exclude_paths.sh
+#      - rewrite only the Docker-managed exclusion block from EXCLUDE_PATHS
+#      - preserve all manual clamd.conf edits outside that block
+#   3. Build_Freshclam_ClamD.sh
 #      - update signatures
 #      - start clamd and wait until it is ready
-#   3. clamdscan.sh
+#   4. clamdscan.sh
 #      - scan the configured folders and save/stream results
 ENTRYPOINT ["/bin/sh", "-c"]
-CMD ["/usr/local/bin/check_files.sh && /usr/local/bin/Build_Freshclam_ClamD.sh && /usr/local/bin/clamdscan.sh"]
+CMD ["/usr/local/bin/check_files.sh && /usr/local/bin/apply_exclude_paths.sh && /usr/local/bin/Build_Freshclam_ClamD.sh && /usr/local/bin/clamdscan.sh"]

@@ -15,6 +15,7 @@ docker run -d \
   --restart=no \
   --pids-limit 2048 \
   -e TZ='America/Chicago' \
+  -e EXCLUDE_PATHS='/scan/appdata/CAVclamdscan' \
   --log-driver=local \
   --log-opt max-size=50m \
   --log-opt max-file=3 \
@@ -33,15 +34,16 @@ Each container start performs one complete scan workflow:
 2. Checks `/etc/clamav/clamd.conf` and `/etc/clamav/freshclam.conf`.
    - If a config is missing, the image copies the maintainer default from `/build` into `/etc/clamav`.
    - If a config already exists, it is left completely unchanged so end-user edits survive image updates and restarts.
-3. Archives logs from the previous run, including interrupted runs.
-4. Clears the active log files for the new run.
-5. Updates the persistent signature database with `freshclam`.
-6. Starts `clamd`.
-7. Waits for `clamd` to answer before scanning.
-8. Runs `clamdscan` against the configured scan folders using the local Unix socket, `--fdpass`, and `--multiscan`.
-9. Streams file-by-file scan activity from `clamd.log` into Docker stdout.
-10. Saves the full logs and infection summary under `/var/log/clamav`.
-11. Exits when the scan finishes.
+3. Rebuilds only the Docker-managed `ExcludePath` block from `EXCLUDE_PATHS`, while preserving all manual `clamd.conf` edits outside that block.
+4. Archives logs from the previous run, including interrupted runs.
+5. Clears the active log files for the new run.
+6. Updates the persistent signature database with `freshclam`.
+7. Starts `clamd`.
+8. Waits for `clamd` to answer before scanning.
+9. Runs `clamdscan` against the configured scan folders using the local Unix socket, `--fdpass`, and `--multiscan`.
+10. Streams file-by-file scan activity from `clamd.log` into Docker stdout.
+11. Saves the full logs and infection summary under `/var/log/clamav`.
+12. Exits when the scan finishes.
 
 This is intentionally **not** a permanently running ClamAV daemon container. A completed one-shot scan leaves the container stopped.
 Host networking and privileged mode are not required for this one-shot local-socket scanner.
@@ -140,6 +142,35 @@ ExcludePath ^/scan/path/to/exclude(/|$)
 
 The directive may be repeated for multiple exclusions.
 
+## Docker-managed exclusions with `EXCLUDE_PATHS`
+
+`EXCLUDE_PATHS` provides a Docker environment-variable interface for common directory exclusions. It uses the same space-separated style as `SCAN_FOLDERS`:
+
+```text
+EXCLUDE_PATHS=/scan/Dockers/PVE/Dockers /scan/Dockers/docker-root /scan/PBS
+```
+
+Paths must be absolute **container-visible** paths. A host path under the directory mounted at `/scan` must therefore be written using its `/scan/...` path.
+
+At startup, `apply_exclude_paths.sh` removes only its previous managed block and regenerates it from the current environment value:
+
+```text
+# BEGIN CLAMAV-ALPINE MANAGED EXCLUDES
+# Generated from the EXCLUDE_PATHS Docker environment variable.
+# Change EXCLUDE_PATHS instead of editing inside this block.
+# Manual clamd.conf edits outside this block are preserved.
+ExcludePath ^/scan/Dockers/PVE/Dockers(/|$)
+ExcludePath ^/scan/Dockers/docker-root(/|$)
+ExcludePath ^/scan/PBS(/|$)
+# END CLAMAV-ALPINE MANAGED EXCLUDES
+```
+
+The script escapes regular-expression metacharacters in each path and adds an anchored `(/|$)` suffix. Manually maintained `ExcludePath` lines outside the managed block are left untouched and may be used alongside the environment-managed entries.
+
+If `EXCLUDE_PATHS` is changed, the managed block is replaced on the next container start. If `EXCLUDE_PATHS` is cleared, the managed block is removed.
+
+Because the value is space-separated, directory names containing spaces are not supported by this environment-variable interface. Such paths can still be configured manually in `clamd.conf`.
+
 ## Docker Compose
 
 The included `compose.dockerhub.yaml` persists all three ClamAV data/config areas:
@@ -150,6 +181,14 @@ volumes:
   - ${CLAMAV_DB_PATH:-./db}:/var/lib/clamav:rw
   - ${CLAMAV_LOG_PATH:-./log}:/var/log/clamav:rw
   - ${CLAMAV_ETC_PATH:-./etc}:/etc/clamav:rw
+```
+
+The Compose environment also supports:
+
+```yaml
+environment:
+  SCAN_FOLDERS: ${SCAN_FOLDERS:-/scan}
+  EXCLUDE_PATHS: "${EXCLUDE_PATHS:-}"
 ```
 
 A fresh local deployment can therefore start with directories such as:
