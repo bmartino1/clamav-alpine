@@ -10,6 +10,8 @@ services:
       TZ: ${TZ:-America/Chicago}
       SCAN_FOLDERS: ${SCAN_FOLDERS:-/scan}
       EXCLUDE_PATHS: "${EXCLUDE_PATHS:-}"
+      LOG_HISTORY_LIMIT: "${LOG_HISTORY_LIMIT:-3}"
+      SKIP_FRESHCLAM: "${SKIP_FRESHCLAM:-false}"
 
     volumes:
       # Data to scan.

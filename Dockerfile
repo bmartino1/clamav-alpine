@@ -18,7 +18,6 @@ LABEL org.opencontainers.image.url="https://github.com/bmartino1/clamav-alpine"
 LABEL org.opencontainers.image.vendor="bmartino1"
 LABEL org.opencontainers.image.licenses="MIT"
 
-
 # ============================================================
 # Maintainer payload
 # ============================================================
@@ -40,11 +39,9 @@ LABEL org.opencontainers.image.licenses="MIT"
 #
 COPY build/ /build/
 
-
 # ============================================================
 # Install runtime files
 # ============================================================
-
 RUN set -eu; \
     mkdir -p \
         /etc/clamav \
@@ -77,7 +74,6 @@ RUN set -eu; \
         /usr/local/bin/Build_Freshclam_ClamD.sh \
         /usr/local/bin/clamdscan.sh
 
-
 # ============================================================
 # Build-time ClamAV signature database
 # ============================================================
@@ -91,8 +87,9 @@ RUN set -eu; \
 # IMPORTANT:
 # /var/lib/clamav may later be hidden by a host bind mount.
 # Therefore the finished databases are copied to /build/clamav-db.
+# The temporary build copy under /var/lib/clamav is then removed so
+# the final image stores only one immutable database seed.
 #
-
 RUN set -eu; \
     echo "========================================"; \
     echo " Building ClamAV signature database"; \
@@ -106,31 +103,37 @@ RUN set -eu; \
     freshclam --config-file=/etc/clamav/freshclam.conf; \
     \
     echo; \
+    echo "Validating downloaded signature database..."; \
+    \
+    if ! { [ -f /var/lib/clamav/main.cvd ] || [ -f /var/lib/clamav/main.cld ]; }; then \
+        echo "ERROR: freshclam completed but main.cvd/main.cld is missing."; \
+        exit 1; \
+    fi; \
+    \
+    if ! { [ -f /var/lib/clamav/daily.cvd ] || [ -f /var/lib/clamav/daily.cld ]; }; then \
+        echo "ERROR: freshclam completed but daily.cvd/daily.cld is missing."; \
+        exit 1; \
+    fi; \
+    \
+    echo; \
     echo "Saving immutable database seed..."; \
     \
-    FOUND_DATABASE=0; \
     for DB_FILE in \
         /var/lib/clamav/*.cvd \
         /var/lib/clamav/*.cld; \
     do \
-        if [ -f "$DB_FILE" ]; then \
-            cp -a "$DB_FILE" /build/clamav-db/; \
-            FOUND_DATABASE=1; \
-        fi; \
+        [ -f "$DB_FILE" ] || continue; \
+        cp -a "$DB_FILE" /build/clamav-db/; \
     done; \
-    \
-    if [ "$FOUND_DATABASE" -ne 1 ]; then \
-        echo "ERROR: freshclam completed but no ClamAV databases were found."; \
-        exit 1; \
-    fi; \
     \
     chown -R root:root /build/clamav-db; \
     chmod -R a=rX /build/clamav-db; \
     \
     echo; \
     echo "Build-time signature database:"; \
-    ls -lh /build/clamav-db
-
+    ls -lh /build/clamav-db; \
+    \
+    rm -f /var/lib/clamav/*.cvd /var/lib/clamav/*.cld /var/lib/clamav/freshclam.dat
 
 # ============================================================
 # One-shot scan workflow
@@ -141,24 +144,25 @@ RUN set -eu; \
 #   1. check_files.sh
 #      - create runtime directories
 #      - seed missing /etc/clamav configuration
-#      - seed empty /var/lib/clamav from /build/clamav-db
-#      - preserve existing host config/database
+#      - seed empty/incomplete /var/lib/clamav from /build/clamav-db
+#      - preserve existing host config/database files
 #      - archive previous logs
+#      - enforce LOG_HISTORY_LIMIT retention
 #
 #   2. apply_exclude_paths.sh
-#      - update Docker-managed ExcludePath block
+#      - update only the Docker-managed ExcludePath block
 #
 #   3. Build_Freshclam_ClamD.sh
-#      - attempt signature update
-#      - fall back to existing signatures when offline
-#      - start clamd
+#      - update signatures unless SKIP_FRESHCLAM is enabled
+#      - fall back to existing signatures if an online update fails
+#      - start clamd and wait until it is ready
 #
 #   4. clamdscan.sh
+#      - report scan folders and active exclusions
 #      - perform scan
 #      - save results
 #      - exit
 #
-
 ENTRYPOINT ["/bin/sh", "-c"]
 
 CMD ["/usr/local/bin/check_files.sh && /usr/local/bin/apply_exclude_paths.sh && /usr/local/bin/Build_Freshclam_ClamD.sh && /usr/local/bin/clamdscan.sh"]

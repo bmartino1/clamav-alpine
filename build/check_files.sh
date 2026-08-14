@@ -2,7 +2,7 @@
 set -eu
 
 # ============================================================
-# Paths
+# Paths / runtime settings
 # ============================================================
 
 BUILD_DIR="/build"
@@ -20,12 +20,37 @@ FRESHCLAM_CONFIG="$CONFIG_DIR/freshclam.conf"
 
 DEFAULT_CLAMD_CONFIG="$BUILD_DIR/clamd.conf"
 DEFAULT_FRESHCLAM_CONFIG="$BUILD_DIR/freshclam.conf"
-
 DEFAULT_DB_DIR="$BUILD_DIR/clamav-db"
 
 CLAMD_LOG="$LOG_DIR/clamd.log"
 SCAN_LOG="$LOG_DIR/log.log"
 SUMMARY_LOG="$LOG_DIR/scan_summary.txt"
+
+# Number of previous scan runs to retain under /var/log/clamav/history.
+#
+#   3 = keep the newest three archived runs (default)
+#   1 = keep only the immediately previous run
+#   0 = disable archived-run retention and remove managed history archives
+#
+# Current-run logs are separate and are always kept in LOG_DIR.
+LOG_HISTORY_LIMIT="${LOG_HISTORY_LIMIT:-3}"
+
+
+# ============================================================
+# Validation helpers
+# ============================================================
+
+validate_log_history_limit()
+{
+    case "$LOG_HISTORY_LIMIT" in
+        ''|*[!0-9]*)
+            echo "ERROR: LOG_HISTORY_LIMIT must be a non-negative integer."
+            echo "Received: $LOG_HISTORY_LIMIT"
+            echo "Examples: 0, 1, 3, 10"
+            exit 1
+            ;;
+    esac
+}
 
 
 # ============================================================
@@ -228,7 +253,6 @@ ensure_signature_database()
         echo "  $filename"
 
         cp -p "$source" "$target"
-
         COPIED_FILES=$((COPIED_FILES + 1))
     done
 
@@ -257,8 +281,103 @@ ensure_signature_database()
 
 
 # ============================================================
+# Previous-run log history helpers
+# ============================================================
+#
+# Archive directories created by this script use names such as:
+#
+#   YYYY-MM-DD_HH-MM-SS
+#   YYYY-MM-DD_HH-MM-SS-001
+#
+# The numeric suffix is only used if multiple archive operations happen
+# within the same second. Lexicographic sorting therefore keeps archive
+# order deterministic for pruning.
+#
+
+list_history_archives()
+{
+    for archive_dir in "$HISTORY_DIR"/????-??-??_??-??-??*
+    do
+        [ -d "$archive_dir" ] || continue
+        [ -f "$archive_dir/run-info.txt" ] || continue
+        printf '%s\n' "$archive_dir"
+    done | sort
+}
+
+
+history_archive_count()
+{
+    list_history_archives | wc -l | tr -d '[:space:]'
+}
+
+
+next_archive_directory()
+{
+    run_stamp="$(date '+%Y-%m-%d_%H-%M-%S')"
+    candidate="$HISTORY_DIR/$run_stamp"
+
+    if [ ! -e "$candidate" ]; then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+
+    archive_index=1
+
+    while :
+    do
+        suffix="$(printf '%03d' "$archive_index")"
+        candidate="$HISTORY_DIR/$run_stamp-$suffix"
+
+        if [ ! -e "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+
+        archive_index=$((archive_index + 1))
+    done
+}
+
+
+prune_log_history()
+{
+    current_count="$(history_archive_count)"
+
+    echo
+    echo "Log history retention:"
+    echo "  LOG_HISTORY_LIMIT=$LOG_HISTORY_LIMIT"
+    echo "  Current archived runs: $current_count"
+
+    if [ "$current_count" -le "$LOG_HISTORY_LIMIT" ]; then
+        echo "  No history pruning required."
+        return 0
+    fi
+
+    echo "  Pruning oldest archived runs..."
+
+    while [ "$current_count" -gt "$LOG_HISTORY_LIMIT" ]
+    do
+        oldest_archive="$(list_history_archives | sed -n '1p')"
+
+        if [ -z "$oldest_archive" ]; then
+            echo "ERROR: History count is nonzero but no archive directory could be selected."
+            exit 1
+        fi
+
+        echo "  Removing: $oldest_archive"
+        rm -rf "$oldest_archive"
+
+        current_count=$((current_count - 1))
+    done
+
+    echo "  Archived runs retained: $current_count"
+}
+
+
+# ============================================================
 # Main startup checks
 # ============================================================
+
+validate_log_history_limit
 
 echo "========================================"
 echo " ClamAV filesystem/configuration check"
@@ -330,48 +449,60 @@ do
 done
 
 if [ "$PREVIOUS_RUN" -eq 1 ]; then
-
-    RUN_STAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
-    ARCHIVE_DIR="$HISTORY_DIR/$RUN_STAMP"
-
     echo "Previous scan data found."
-    echo
-    echo "Archiving previous run to:"
-    echo "  $ARCHIVE_DIR"
 
-    mkdir -p "$ARCHIVE_DIR"
-
-    for file in \
-        "$CLAMD_LOG" \
-        "$SCAN_LOG" \
-        "$SUMMARY_LOG"
-    do
-        if [ -e "$file" ]; then
-            cp -a "$file" "$ARCHIVE_DIR/"
-        fi
-    done
-
-    {
-        echo "ClamAV previous-run archive"
-        echo "Archived: $(date)"
+    if [ "$LOG_HISTORY_LIMIT" -eq 0 ]; then
         echo
-        echo "This directory contains the logs that existed"
-        echo "before the next one-shot scan was started."
+        echo "LOG_HISTORY_LIMIT=0."
+        echo "Previous active logs will not be archived."
+        echo "Existing managed history archives will be removed."
+    else
+        ARCHIVE_DIR="$(next_archive_directory)"
+
         echo
-        echo "This may represent:"
-        echo "  - a completed previous scan"
-        echo "  - an interrupted scan"
-        echo "  - a manually restarted scan"
-    } > "$ARCHIVE_DIR/run-info.txt"
+        echo "Archiving previous run to:"
+        echo "  $ARCHIVE_DIR"
 
-    echo
-    echo "Previous run preserved."
+        mkdir -p "$ARCHIVE_DIR"
 
+        # Create the archive marker first. History pruning only removes
+        # timestamped directories containing this file, so unrelated user
+        # directories under history/ are never selected for automatic removal.
+        {
+            echo "ClamAV previous-run archive"
+            echo "Archived: $(date)"
+            echo "Retention limit at archive time: $LOG_HISTORY_LIMIT"
+            echo
+            echo "This directory contains the logs that existed"
+            echo "before the next one-shot scan was started."
+            echo
+            echo "This may represent:"
+            echo "  - a completed previous scan"
+            echo "  - an interrupted scan"
+            echo "  - a manually restarted scan"
+        } > "$ARCHIVE_DIR/run-info.txt"
+
+        for file in \
+            "$CLAMD_LOG" \
+            "$SCAN_LOG" \
+            "$SUMMARY_LOG"
+        do
+            if [ -e "$file" ]; then
+                cp -a "$file" "$ARCHIVE_DIR/"
+            fi
+        done
+
+        echo
+        echo "Previous run preserved."
+    fi
 else
-
     echo "No previous scan logs need archiving."
-
 fi
+
+# Enforce the configured limit every run. This also handles lowering the
+# limit when there are no current logs to archive, and removes all managed
+# history when LOG_HISTORY_LIMIT=0.
+prune_log_history
 
 
 # ============================================================
@@ -449,7 +580,6 @@ do
     [ -f "$file" ] || continue
     ls -lh "$file"
 done
-
 
 echo
 echo "========================================"
