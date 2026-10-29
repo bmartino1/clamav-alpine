@@ -1,391 +1,273 @@
-# clamav-alpine
+# ClamAV clamdscan — One-Shot Docker Scanner
 
-One-shot ClamAV `clamdscan` filesystem scanner for Docker, Docker Compose, Dockge, Unraid, and Linux storage hosts.
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-bmmbmm01%2Fclamav--alpine-blue?logo=docker)](https://hub.docker.com/r/bmmbmm01/clamav-alpine)
+[![GitHub](https://img.shields.io/badge/Source-bmartino1%2Fclamav--alpine-181717?logo=github)](https://github.com/bmartino1/clamav-alpine)
+[![ClamAV](https://img.shields.io/badge/Engine-ClamAV-3D9970)](https://www.clamav.net/)
 
-> **Project name note:** `clamav-alpine` is the historical repository/image name. The current implementation uses the maintained official ClamAV Docker base image instead of manually installing an old ClamAV package into `alpine:latest`.
+**ClamAV clamdscan** is a Docker-based, one-shot malware scanner designed for **Unraid** and other Docker hosts. Point it at a folder, start the container, and let it scan. The results are saved to your persistent log directory when the scan is finished.
 
-Docker Hub image:
+This project builds on earlier community ClamAV container approaches, adapted for a practical `clamdscan` workflow with persistent settings, live Docker log output, scan exclusions, and previous-scan history.
 
-https://hub.docker.com/r/bmmbmm01/clamav-alpine
+> **A scan runs once per container start.** The container updates signatures (when enabled), starts `clamd`, scans your selected folders, writes the results, and exits. A **stopped** container after a completed scan is expected. This is not a continuously running antivirus service, real-time protection tool, or web interface.
+
+**About the name:** `clamav-alpine` is the historical image/repository name. The current Dockerfile uses the **official ClamAV base image**, not a custom installation of an older ClamAV package into `alpine:latest`.
+
+## Project Links
+
+- **Docker image:** [bmmbmm01/clamav-alpine](https://hub.docker.com/r/bmmbmm01/clamav-alpine)
+- **Source code:** [bmartino1/clamav-alpine](https://github.com/bmartino1/clamav-alpine)
+- **Unraid template:** [clamdscan.xml](https://github.com/bmartino1/unraid-docker-templates/blob/main/templates/clamdscan.xml)
+- **Unraid support:** [bmartino1 CA Docker Repository](https://forums.unraid.net/topic/198948-support-bmartino1-ca-docker-repository/)
+- **ClamAV project:** [ClamAV](https://www.clamav.net/) · [Documentation](https://docs.clamav.net/) · [Source](https://github.com/Cisco-Talos/clamav)
+
+## Features
+
+- **One-shot scans:** run on demand; the container exits when finished.
+- **ClamAV daemon + clamdscan:** uses the local Unix socket, `--fdpass`, and `--multiscan`.
+- **Read-only scan folders:** your files can be mounted as `/scan:ro`; the wrapper does not remove or quarantine detections.
+- **Signature updates:** `freshclam` checks for newer signatures before a scan unless disabled.
+- **Offline-friendly first start:** image-bundled build-time signatures can initialize an empty persistent database.
+- **Persistent configuration:** keep custom `clamd.conf` and `freshclam.conf` files across restarts and image updates.
+- **Flexible exclusions:** use an environment variable for ordinary directory exclusions or edit `clamd.conf` directly.
+- **Live progress:** file-by-file scan output appears in Docker/Unraid logs.
+- **Saved reports:** detection summary, detailed scan logs, and optional previous-run history.
+- **No privileged mode or host networking required.**
+
+## Install on Unraid
+
+The Unraid template is the simplest way to get started. Install **clamdscan**, select the folder you want to scan, and click **Apply** to create/start the container.
+
+The template uses bridge networking and a read-only mount for the selected scan folder. There is no WebUI; view progress in the container log while it runs and saved results in the mapped log directory afterward.
+
+Typical Unraid paths:
+
+| Host path | Container path | Purpose |
+| --- | --- | --- |
+| `/mnt/user` | `/scan:ro` | Files to scan, read-only |
+| `/mnt/user/appdata/CAVclamdscan/db` | `/var/lib/clamav:rw` | Persistent virus signatures |
+| `/mnt/user/appdata/CAVclamdscan/log` | `/var/log/clamav:rw` | Scan reports and history |
+| `/mnt/user/appdata/CAVclamdscan/etc` | `/etc/clamav:rw` | Editable ClamAV configuration |
+
+If scanning all of `/mnt/user`, consider excluding this scanner's own appdata path:
 
 ```text
+EXCLUDE_PATHS=/scan/appdata/CAVclamdscan
+```
+
+The `/scan` path is the **path inside the container**, not the Unraid host path.
+
+### Manual Docker Run
+
+Adjust the folder mounted at `/scan` to match your Unraid storage location:
+
+```bash
+mkdir -p /mnt/user/appdata/CAVclamdscan/{db,log,etc}
+
 docker run -d \
-  --name='ClamAV-clamdscan' \
-  --net='bridge' \
-  --restart=no \
+  --name ClamAV-clamdscan \
+  --network bridge \
+  --restart no \
   --pids-limit 2048 \
-  -e TZ='America/Chicago' \
-  -e SCAN_FOLDERS='/scan' \
-  -e EXCLUDE_PATHS='/scan/appdata/CAVclamdscan' \
-  -e LOG_HISTORY_LIMIT='3' \
-  -e SKIP_FRESHCLAM='false' \
-  --log-driver=local \
+  -e SCAN_FOLDERS="/scan" \
+  -e EXCLUDE_PATHS="/scan/appdata/CAVclamdscan" \
+  -e LOG_HISTORY_LIMIT="3" \
+  -e SKIP_FRESHCLAM="false" \
+  --log-driver local \
   --log-opt max-size=50m \
   --log-opt max-file=3 \
-  -v '/mnt/remotes/addons/':'/scan':'ro' \
-  -v '/mnt/user/appdata/CAVclamdscan/db/':'/var/lib/clamav':'rw' \
-  -v '/mnt/user/appdata/CAVclamdscan/log/':'/var/log/clamav':'rw' \
-  -v '/mnt/user/appdata/CAVclamdscan/etc/':'/etc/clamav':'rw' \
-  'bmmbmm01/clamav-alpine:latest'
+  -v /mnt/user:/scan:ro \
+  -v /mnt/user/appdata/CAVclamdscan/db:/var/lib/clamav:rw \
+  -v /mnt/user/appdata/CAVclamdscan/log:/var/log/clamav:rw \
+  -v /mnt/user/appdata/CAVclamdscan/etc:/etc/clamav:rw \
+  bmmbmm01/clamav-alpine:latest
 ```
 
-## What this container does
+Follow progress with:
 
-Each container start performs one complete scan workflow:
-
-1. Creates/checks the required runtime directories.
-2. Checks `/etc/clamav/clamd.conf` and `/etc/clamav/freshclam.conf`.
-   - If a config is missing, the image copies the maintainer default from `/build` into `/etc/clamav`.
-   - If a config already exists, it is left unchanged so end-user edits survive image updates and restarts.
-3. Checks `/var/lib/clamav`.
-   - If the persistent database is empty or incomplete, missing signature files are seeded from the image-local `/build/clamav-db` snapshot created at image build time.
-   - Existing persistent database files are not overwritten by the bootstrap check.
-4. Archives logs from the previous run when log history is enabled, then enforces `LOG_HISTORY_LIMIT`.
-5. Clears the active log files for the new run.
-6. Rebuilds only the Docker-managed `ExcludePath` block from `EXCLUDE_PATHS`, while preserving manual `clamd.conf` edits outside that block.
-7. Runs `freshclam` unless `SKIP_FRESHCLAM` is enabled.
-   - If the update fails but a usable database already exists, the scan continues using the existing signatures.
-8. Starts `clamd` and waits for it to become ready.
-9. Runs `clamdscan` against the configured scan folders using the local Unix socket, `--fdpass`, and `--multiscan`.
-10. Prints the configured scan folders and active exclusions before scanning.
-11. Streams file-by-file scan activity from `clamd.log` into Docker stdout.
-12. Saves persistent scan results and exits when the scan finishes.
-
-This is intentionally **not** a permanently running ClamAV daemon container. A completed one-shot scan leaves the container stopped. Host networking and privileged mode are not required for this one-shot local-socket scanner.
-
-## Why `/build` exists inside the image
-
-The repository `build/` directory is copied into the image at `/build`.
-
-That is intentional because runtime bind mounts hide the original image contents at the mounted destination.
-
-For configuration, an empty bind mount such as:
-
-```text
-/path/to/etc:/etc/clamav:rw
+```bash
+docker logs -f ClamAV-clamdscan
 ```
 
-would otherwise hide the image's `/etc/clamav/clamd.conf` and `/etc/clamav/freshclam.conf`.
+Run another scan later by starting the stopped container again:
 
-`check_files.sh` therefore uses the image-local copies:
-
-```text
-/build/clamd.conf
-/build/freshclam.conf
+```bash
+docker start ClamAV-clamdscan
 ```
 
-and copies a file into `/etc/clamav` **only when that file is missing**.
+> Because this is an on-demand scanner, Docker restart policy `no` is intentional. It will not schedule future scans by itself.
 
-After the first run, the host gets editable copies:
+## Docker Compose / Dockge
 
-```text
-/path/to/etc/clamd.conf
-/path/to/etc/freshclam.conf
+A Compose example is included in the repository: [compose.dockerhub.yaml](https://github.com/bmartino1/clamav-alpine/blob/main/compose.dockerhub.yaml).
+
+It supports configurable host paths for the scan, signature database, logs, and ClamAV configuration:
+
+```yaml
+name: clamav
+
+services:
+  clamav:
+    image: bmmbmm01/clamav-alpine:latest
+    container_name: clamav
+    restart: "no"
+    environment:
+      SCAN_FOLDERS: /scan
+      EXCLUDE_PATHS: ""
+      LOG_HISTORY_LIMIT: "3"
+      SKIP_FRESHCLAM: "false"
+    volumes:
+      - ./scan:/scan:ro
+      - ./db:/var/lib/clamav:rw
+      - ./log:/var/log/clamav:rw
+      - ./etc:/etc/clamav:rw
+    pids_limit: 2048
+    logging:
+      driver: local
+      options:
+        max-size: "50m"
+        max-file: "3"
 ```
 
-Those files belong to the deployment. Future container starts and image updates do **not** replace them.
+Run it from the directory containing your Compose file:
 
-The same design is used for offline-capable signatures. During image build, `freshclam` downloads a current database snapshot and the image stores it under:
-
-```text
-/build/clamav-db/
+```bash
+docker compose up -d
+docker compose logs -f
 ```
 
-If a new host bind-mounts an empty `/var/lib/clamav`, `check_files.sh` seeds the missing signature files from that image-local snapshot before the normal update/start workflow continues.
+Update `./scan` to the host folder you actually want to scan. Docker Compose and Dockge also work with the supplied `compose.dockerhub.yaml`.
 
-## Volumes
+## Environment Variables
 
-### `/scan`
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SCAN_FOLDERS` | `/scan` | Space-separated container folders to scan. |
+| `EXCLUDE_PATHS` | empty | Space-separated **container paths** to exclude. |
+| `LOG_HISTORY_LIMIT` | `3` | Number of previous-scan log archives to retain; `0` disables history. |
+| `SKIP_FRESHCLAM` | `false` | Set to `true` to skip online signature updates before scanning. |
+| `TZ` | supplied by deployment | Container time zone; for example, `America/Chicago`. |
 
-The data to scan. This should normally be mounted read-only:
+### Scanning More Than One Folder
 
-```text
-/path/to/data:/scan:ro
-```
-
-### `/var/lib/clamav`
-
-Persistent ClamAV signature database:
-
-```text
-/path/to/db:/var/lib/clamav:rw
-```
-
-The project uses an official ClamAV `_base` image and downloads signatures during the custom image build. A copy of that build-time database is retained under `/build/clamav-db` so a new empty persistent database can be initialized without Internet access.
-
-For normal online operation, `freshclam` still checks for newer signatures before each scan.
-
-### `/var/log/clamav`
-
-Persistent current-run logs and previous-run history:
-
-```text
-/path/to/log:/var/log/clamav:rw
-```
-
-Current run:
-
-```text
-/var/log/clamav/clamd.log
-/var/log/clamav/log.log
-/var/log/clamav/scan_summary.txt
-```
-
-Previous run data is archived before a new scan starts when history retention is enabled:
-
-```text
-/var/log/clamav/history/YYYY-MM-DD_HH-MM-SS/
-```
-
-If two archive operations happen within the same second, a numeric suffix is added rather than reusing an existing directory.
-
-### `/etc/clamav`
-
-Persistent, end-user-editable ClamAV configuration:
-
-```text
-/path/to/etc:/etc/clamav:rw
-```
-
-On an empty first-run bind mount, the container creates only the missing files from its `/build` defaults. Existing files are never replaced by `check_files.sh`.
-
-This is where deployment-specific settings belong, including manual scan exclusions.
-
-For example, paths in `ExcludePath` are **container paths**, so a host directory mounted below `/scan` should be excluded using its `/scan/...` path:
-
-```text
-ExcludePath ^/scan/path/to/exclude(/|$)
-```
-
-The directive may be repeated for multiple exclusions.
-
-## Environment variables
-
-### `SCAN_FOLDERS`
-
-Space-separated container paths to scan. Default:
-
-```text
-SCAN_FOLDERS=/scan
-```
-
-Example:
+Mount each additional host directory into the container and include its container path:
 
 ```text
 SCAN_FOLDERS=/scan /scan2
 ```
 
-### `EXCLUDE_PATHS`
+### Excluding Folders
 
-Provides a Docker environment-variable interface for common directory exclusions. It uses the same space-separated style as `SCAN_FOLDERS`:
-
-```text
-EXCLUDE_PATHS=/scan/Dockers/PVE/Dockers /scan/Dockers/docker-root /scan/PBS
-```
-
-Paths must be absolute **container-visible** paths. A host path below the directory mounted at `/scan` must therefore be written using its `/scan/...` path.
-
-At startup, `apply_exclude_paths.sh` removes only its previous managed block and regenerates it from the current environment value:
+For common exclusions, use:
 
 ```text
-# BEGIN CLAMAV-ALPINE MANAGED EXCLUDES
-# Generated from the EXCLUDE_PATHS Docker environment variable.
-# Change EXCLUDE_PATHS instead of editing inside this block.
-# Manual clamd.conf edits outside this block are preserved.
-ExcludePath ^/scan/Dockers/PVE/Dockers(/|$)
-ExcludePath ^/scan/Dockers/docker-root(/|$)
-ExcludePath ^/scan/PBS(/|$)
-# END CLAMAV-ALPINE MANAGED EXCLUDES
+EXCLUDE_PATHS=/scan/appdata/CAVclamdscan /scan/other-folder
 ```
 
-The script escapes regular-expression metacharacters in each path and adds an anchored `(/|$)` suffix. Manual `ExcludePath` lines outside the managed block are left untouched and may be used alongside environment-managed entries.
+On startup, the container updates only its **managed exclusion block** in `clamd.conf`. Manually added `ExcludePath` entries outside that block are preserved.
 
-If `EXCLUDE_PATHS` changes, the managed block is replaced on the next container start. If `EXCLUDE_PATHS` is cleared, the managed block is removed.
+Paths in `EXCLUDE_PATHS` are separated by spaces, so this setting is not suitable for directory names containing spaces. For those, add the relevant `ExcludePath` rule directly to the persistent `clamd.conf`.
 
-Because the value is space-separated, directory names containing spaces are not supported by this environment-variable interface. Such paths can still be configured manually in `clamd.conf`.
-
-### `LOG_HISTORY_LIMIT`
-
-Controls how many **previous-run archive directories** are retained under `/var/log/clamav/history`.
-
-Default:
+### Keeping Previous Scan Logs
 
 ```text
 LOG_HISTORY_LIMIT=3
 ```
 
-Examples:
+Keeps up to three previous-run archives. Set it to `0` to disable archived history and remove existing managed history archives at the next start.
 
-```text
-LOG_HISTORY_LIMIT=10   # keep the newest 10 archived runs
-LOG_HISTORY_LIMIT=1    # keep only the immediately previous run
-LOG_HISTORY_LIMIT=0    # disable archive retention and remove managed history archives
-```
+The current scan logs are separate from the archived history and are not capped by this setting.
 
-The value must be a non-negative integer. The limit is enforced every container start, so lowering the value prunes the oldest timestamped archive directories on the next run.
-
-`LOG_HISTORY_LIMIT` limits **archived runs**, not the size of the currently active scan log. With `LogClean yes`, a large active scan may still generate a large `clamd.log` until that run finishes.
-
-### `SKIP_FRESHCLAM`
-
-Default:
-
-```text
-SKIP_FRESHCLAM=false
-```
-
-Normal operation attempts to update signatures before scanning. If the update fails and a usable signature database already exists, the container warns and continues with those existing signatures.
-
-For a deliberately isolated/offline environment, set:
+### Offline Scanning
 
 ```text
 SKIP_FRESHCLAM=true
 ```
 
-This skips the network update attempt entirely and uses the persistent or image-seeded database. The container still refuses to start `clamd` if the required `main` and `daily` databases are unavailable.
+Skips the signature update attempt. The container uses persistent signatures or the signature snapshot included when the image was built.
 
-Accepted true values are `1`, `true`, `yes`, and `on`. Accepted false values are `0`, `false`, `no`, and `off`.
+Offline operation is useful when needed, but signatures may be outdated. For routine scans, leave `SKIP_FRESHCLAM=false` so `freshclam` attempts an update before each scan. If updating fails and a usable database exists, the scanner continues with existing signatures.
 
-## Docker Compose
+## What Happens on Startup?
 
-The included `compose.dockerhub.yaml` persists all ClamAV data/config areas:
+Each start runs a single scan workflow:
 
-```yaml
-volumes:
-  - ${SCAN_PATH:-./scan}:/scan:ro
-  - ${CLAMAV_DB_PATH:-./db}:/var/lib/clamav:rw
-  - ${CLAMAV_LOG_PATH:-./log}:/var/log/clamav:rw
-  - ${CLAMAV_ETC_PATH:-./etc}:/etc/clamav:rw
-```
+1. Check folders and prepare missing configuration files.
+2. Seed a missing or incomplete signature database from the image's build-time copy.
+3. Archive and rotate earlier scan logs according to `LOG_HISTORY_LIMIT`.
+4. Apply the Docker-managed `EXCLUDE_PATHS` entries without overwriting manual configuration.
+5. Update signatures with `freshclam` unless skipped.
+6. Start `clamd` and wait for it to be ready.
+7. Run `clamdscan` over the configured folders, show progress, and save results.
+8. Exit after the scan completes.
 
-The Compose environment supports:
+The image keeps its default configuration and signature seed under `/build` because bind-mounting empty host folders over `/etc/clamav` or `/var/lib/clamav` would otherwise hide those files. Missing configuration files are copied on first start; existing host configuration files are left intact.
 
-```yaml
-environment:
-  TZ: ${TZ:-America/Chicago}
-  SCAN_FOLDERS: ${SCAN_FOLDERS:-/scan}
-  EXCLUDE_PATHS: "${EXCLUDE_PATHS:-}"
-  LOG_HISTORY_LIMIT: "${LOG_HISTORY_LIMIT:-3}"
-  SKIP_FRESHCLAM: "${SKIP_FRESHCLAM:-false}"
-```
+## Scan Results and Logs
 
-A fresh local deployment can therefore start with directories such as:
+Persistent scan results are written under `/var/log/clamav`, mapped to the log folder on your host:
 
-```text
-clamav/
-├── compose.dockerhub.yaml
-├── db/
-├── etc/
-├── log/
-└── scan/
-```
+| File | Contents |
+| --- | --- |
+| `scan_summary.txt` | Quick summary of detected threats |
+| `log.log` | Scan output plus scan configuration |
+| `clamd.log` | Detailed daemon and file-scan activity |
+| `history/` | Archived logs from previous runs, when enabled |
 
-After the first container run, `etc/` contains the maintained defaults and can be edited on the host. An empty `db/` is populated from the image-local build-time database before an online update is attempted.
+The container prints the selected folders and effective exclusions before scanning. With verbose clean-file logging enabled, a large scan can generate significant log output. Docker stdout rotation helps control Docker logs, but it does not impose a size limit on your persistent `clamd.log`.
 
-## Live scan progress and exclusion reporting
+A malware detection is recorded as a completed scan with findings; it is not treated as a container infrastructure failure. Actual scanning errors can still produce a nonzero exit status.
 
-The maintained `clamd.conf` intentionally uses:
+**Detected files are reported, not automatically deleted, quarantined, or repaired.** Review findings before deciding what action to take.
+
+## Editing ClamAV Settings
+
+The container keeps editable copies of these files under your mapped `/etc/clamav` directory:
 
 ```text
-LogClean yes
-LogVerbose yes
+clamd.conf
+freshclam.conf
 ```
 
-and `clamdscan.sh` follows `clamd.log` with `tail -F`.
+If either file is missing on first start, it is copied from the image defaults. Later image updates do not replace existing configuration files.
 
-That produces visible file-by-file activity in Docker/Dockge/Unraid logs during scans that may run for many hours:
+You can add manual `ExcludePath` rules, for example:
 
 ```text
-/scan/path/file1.reg: OK
-/scan/path/file2.ps1: OK
-/scan/path/file3.exe: OK
+ExcludePath ^/scan/path/to/exclude(/|$)
 ```
 
-Before scanning, the wrapper also prints:
+Remember that ClamAV sees **container paths**, not host paths.
 
-- the configured `SCAN_FOLDERS`;
-- Docker-managed `EXCLUDE_PATHS` and whether each path currently exists inside the container;
-- every active `ExcludePath` directive in the effective `clamd.conf`, including manual rules.
+## Troubleshooting
 
-The scan configuration is appended to the persistent `log.log` so the saved report remains self-describing after Docker stdout has rotated.
+### The container stopped
 
-Because file-by-file output can create a large amount of Docker stdout, the Compose example uses Docker's `local` logging driver with rotation:
+That is normal after a completed scan. Check the saved results under `/var/log/clamav` or the container's logs. Start the container again when you want another scan.
 
-```yaml
-logging:
-  driver: local
-  options:
-    max-size: "50m"
-    max-file: "3"
-```
+### Files are not being scanned
 
-Docker stdout rotation is separate from the persistent ClamAV logs mounted at `/var/log/clamav`.
+Verify your host directory is mounted to `/scan` and `SCAN_FOLDERS` names the corresponding path inside the container. Review `EXCLUDE_PATHS` and any manual `ExcludePath` rules in `clamd.conf`.
 
-## Scan results and exit behavior
+### Signatures do not update
 
-`scan_summary.txt` is the quick infection-result file. `log.log` contains the `clamdscan` output plus the scan configuration, and `clamd.log` contains detailed daemon/file activity.
+Inspect Docker logs for `freshclam` messages, and confirm the signature database directory is writable. Offline scans can use existing signatures, but they may be less up to date.
 
-The wrapper treats a ClamAV malware detection as a completed scan and records the detection in the summary rather than marking the container itself as failed.
+### Scan logs become large
 
-A true `clamdscan` scan/error condition is returned after the logs are saved.
+Verbose file-by-file logging is enabled for visibility. Large folder trees can create large `clamd.log` files. You can adjust your persistent `clamd.conf` logging settings and exclude paths that do not need scanning. `LOG_HISTORY_LIMIT` applies to **archives**, not the active log.
 
-For multiple `SCAN_FOLDERS`, the wrapper records only `FOUND` lines added while each individual folder was being scanned so a detection from one folder is not incorrectly repeated under later folders.
+### Scans are slow or take many hours
 
-A large host tree may contain special objects that ClamAV cannot scan, for example Docker runtime files, backing block-device entries, or pseudo-filesystems. Use `EXCLUDE_PATHS` or manual `ExcludePath` rules for storage that should not be traversed.
+Scan duration depends on storage speed, number and size of files, and available CPU and memory. `clamdscan --multiscan` allows the daemon to process files in parallel. Excluding unnecessary runtime folders and other storage trees can help.
 
-## Updating ClamAV
+## Updating
 
-The ClamAV engine comes from the official image selected by `CLAMAV_TAG` in the Dockerfile. Rebuild and publish this image when moving to a newer supported ClamAV base image/tag.
+Pull a newer image and recreate the container when you want to update the packaged ClamAV engine and wrapper scripts. The selected engine release is controlled by `CLAMAV_TAG` at image build time.
 
-The custom image build runs `freshclam` and saves the downloaded signature databases under `/build/clamav-db`. For a release intended to carry current signatures, ensure the Docker build step is not satisfied by an old cached layer.
+Signature definitions update separately through `freshclam` at scan time (unless disabled). Your mapped database, configuration, and log directories persist across container recreation.
 
-At runtime, signatures are updated with `freshclam` unless `SKIP_FRESHCLAM` is enabled. If runtime updating is unavailable, the existing persistent or image-seeded signatures allow the scanner to continue offline.
+## Project Background and License
 
-## Suggested tests before publishing
+This repository is an adaptation of earlier community ClamAV Docker/scanner work, maintained here as a one-shot `clamdscan` container with Unraid-friendly deployment options. The upstream antivirus engine is the [ClamAV project](https://github.com/Cisco-Talos/clamav); this image is not an official ClamAV release.
 
-### Shell syntax
-
-```text
-for file in build/*.sh; do
-  /bin/sh -n "$file" || exit 1
-done
-```
-
-### Normal build
-
-```text
-docker build --pull --no-cache -t bmmbmm01/clamav-alpine:test .
-```
-
-### Offline first-run test
-
-Use empty `db`, `etc`, and `log` directories and disable networking:
-
-```text
-docker run --rm \
-  --network none \
-  -e SKIP_FRESHCLAM=true \
-  -e SCAN_FOLDERS=/scan \
-  -e LOG_HISTORY_LIMIT=3 \
-  -v /tmp/clamav-test/db:/var/lib/clamav:rw \
-  -v /tmp/clamav-test/etc:/etc/clamav:rw \
-  -v /tmp/clamav-test/log:/var/log/clamav:rw \
-  -v /tmp/clamav-test/scan:/scan:ro \
-  bmmbmm01/clamav-alpine:test
-```
-
-A successful offline first run proves that the image can seed both configuration and signatures without Internet access.
-
-### History retention test
-
-Run several short scans with:
-
-```text
-LOG_HISTORY_LIMIT=3
-```
-
-After enough runs, verify that `/var/log/clamav/history` contains no more than three timestamped archive directories. Then test `LOG_HISTORY_LIMIT=0` and verify that archived history is removed while the current active log files still exist.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+The repository's wrapper code is distributed under the [MIT License](https://github.com/bmartino1/clamav-alpine/blob/main/LICENSE). ClamAV and other bundled upstream software retain their own respective licenses.
