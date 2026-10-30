@@ -3,6 +3,7 @@
 [![Docker Hub](https://img.shields.io/badge/Docker%20Hub-bmmbmm01%2Fclamav--alpine-blue?logo=docker)](https://hub.docker.com/r/bmmbmm01/clamav-alpine)
 [![GitHub](https://img.shields.io/badge/Source-bmartino1%2Fclamav--alpine-181717?logo=github)](https://github.com/bmartino1/clamav-alpine)
 [![ClamAV](https://img.shields.io/badge/Engine-ClamAV-3D9970)](https://www.clamav.net/)
+[![Unraid](https://img.shields.io/badge/Platform-Unraid-F15A2C?logo=unraid)](https://unraid.net/)
 
 **ClamAV clamdscan** is a Docker-based, one-shot malware scanner designed for **Unraid** and other Docker hosts. Point it at a folder, start the container, and let it scan. The results are saved to your persistent log directory when the scan is finished.
 
